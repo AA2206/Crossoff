@@ -34,8 +34,13 @@ interface FreeBusyResponse {
   >
 }
 
+/** A busy time and the calendar it came from. */
+export interface BusyInterval extends Interval {
+  calendarId: string
+}
+
 export interface BusyResult {
-  busy: Interval[]
+  busy: BusyInterval[]
   /** Calendars Google couldn't read, e.g. deleted or no longer shared. */
   failedCalendarIds: string[]
 }
@@ -59,7 +64,7 @@ export async function getBusy(
       items: calendarIds.map((id) => ({ id })),
     }),
   })
-  const busy: Interval[] = []
+  const busy: BusyInterval[] = []
   const failedCalendarIds: string[] = []
   const unrequested = Object.keys(calendars).filter(
     (key) => !calendarIds.includes(key),
@@ -77,6 +82,7 @@ export async function getBusy(
     }
     for (const b of calendar.busy ?? []) {
       const interval = {
+        calendarId: id,
         start: wallClockMinutes(b.start, date, timeZone),
         end: wallClockMinutes(b.end, date, timeZone),
       }

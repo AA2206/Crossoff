@@ -1,11 +1,5 @@
-import type {
-  Interval,
-  PlanResult,
-  SetAside,
-  Settings,
-  Task,
-} from '../scheduler'
-import type { CalendarInfo } from '../calendar'
+import type { PlanResult, SetAside, Settings, Task } from '../scheduler'
+import type { BusyInterval, CalendarInfo, PlannerEvent } from '../calendar'
 import type { Saved } from '../storage'
 import { todayISO } from './time'
 
@@ -17,6 +11,40 @@ export const DEFAULT_SETTINGS: Settings = {
   calendarIds: ['primary'],
 }
 
+/** What the calendar holds for the chosen day. */
+export interface Day {
+  /** busyKey of the date and calendars this was loaded for. */
+  key: string
+  /** The dayVersion it was loaded at; a newer version means reload. */
+  version: number
+  busy: BusyInterval[]
+  /** Crossoff's own events already on the day. */
+  plannerEvents: PlannerEvent[]
+  failedCalendarIds: string[]
+}
+
+export type CommitState =
+  | { status: 'idle' }
+  | { status: 'working'; label: string }
+  /** Creating stopped partway; sessions from `remainingIndex` on are missing. */
+  | {
+      status: 'create-failed'
+      createdIds: string[]
+      remainingIndex: number
+      message: string
+    }
+  /** The new plan is in, but these old events are still there. */
+  | {
+      status: 'remove-failed'
+      created: number
+      leftoverIds: string[]
+      message: string
+    }
+  | { status: 'done'; created: number; replaced: number }
+  | { status: 'undone' }
+  | { status: 'cleared'; count: number }
+  | { status: 'error'; message: string }
+
 export interface State {
   date: string
   settings: Settings
@@ -25,19 +53,17 @@ export interface State {
   connection: 'disconnected' | 'connecting' | 'connected' | 'expired'
   connectError: string | null
   calendars: CalendarInfo[] | null
-  /** Busy times for the date and calendars in `key`, once loaded. */
-  busy: {
-    key: string
-    intervals: Interval[]
-    failedCalendarIds: string[]
-  } | null
-  busyLoading: boolean
-  busyError: string | null
-  /** Bumped by Retry so the busy times load again. */
-  busyAttempt: number
+  day: Day | null
+  dayLoading: boolean
+  dayError: string | null
+  /** Bumped to reload the day, e.g. by Retry or after a commit. */
+  dayVersion: number
   result: PlanResult | null
+  /** Planner events the current plan replaces when committed. */
+  replaceIds: string[]
   /** Inputs changed since the plan was generated. */
   stale: boolean
+  commit: CommitState
 }
 
 export type Action =
@@ -55,16 +81,13 @@ export type Action =
   | { type: 'auth/failed'; message: string }
   | { type: 'auth/expired' }
   | { type: 'auth/disconnected' }
-  | { type: 'busy/loading' }
-  | {
-      type: 'busy/loaded'
-      key: string
-      intervals: Interval[]
-      failedCalendarIds: string[]
-    }
-  | { type: 'busy/failed'; message: string }
-  | { type: 'busy/retry' }
-  | { type: 'planned'; result: PlanResult }
+  | { type: 'day/loading' }
+  | { type: 'day/loaded'; day: Omit<Day, 'version'> }
+  | { type: 'day/failed'; message: string }
+  | { type: 'day/reload' }
+  | { type: 'planned'; result: PlanResult; replaceIds: string[] }
+  | { type: 'commit/set'; commit: CommitState }
+  | { type: 'plan/clear' }
 
 export function initialState(saved: Partial<Saved>): State {
   return {
@@ -75,16 +98,18 @@ export function initialState(saved: Partial<Saved>): State {
     connection: 'disconnected',
     connectError: null,
     calendars: null,
-    busy: null,
-    busyLoading: false,
-    busyError: null,
-    busyAttempt: 0,
+    day: null,
+    dayLoading: false,
+    dayError: null,
+    dayVersion: 0,
     result: null,
+    replaceIds: [],
     stale: false,
+    commit: { status: 'idle' },
   }
 }
 
-/** Identifies which busy times the current inputs need. */
+/** Identifies which day's calendar data the current inputs need. */
 export const busyKey = (date: string, calendarIds: string[]) =>
   `${date}|${calendarIds.join(',')}`
 
@@ -180,39 +205,47 @@ export function reducer(state: State, action: Action): State {
     case 'auth/failed':
       return {
         ...state,
-        connection: state.busy ? 'expired' : 'disconnected',
+        connection: state.day ? 'expired' : 'disconnected',
         connectError: action.message,
       }
     case 'auth/expired':
-      return { ...state, connection: 'expired', busyLoading: false }
+      return { ...state, connection: 'expired', dayLoading: false }
     case 'auth/disconnected':
       return {
         ...state,
         connection: 'disconnected',
         connectError: null,
         calendars: null,
-        busy: null,
-        busyError: null,
+        day: null,
+        dayError: null,
         result: null,
+        replaceIds: [],
         stale: false,
+        commit: { status: 'idle' },
       }
-    case 'busy/loading':
-      return { ...state, busyLoading: true, busyError: null }
-    case 'busy/loaded':
+    case 'day/loading':
+      return { ...state, dayLoading: true, dayError: null }
+    case 'day/loaded':
       return {
         ...state,
-        busyLoading: false,
-        busy: {
-          key: action.key,
-          intervals: action.intervals,
-          failedCalendarIds: action.failedCalendarIds,
-        },
+        dayLoading: false,
+        day: { ...action.day, version: state.dayVersion },
       }
-    case 'busy/failed':
-      return { ...state, busyLoading: false, busyError: action.message }
-    case 'busy/retry':
-      return { ...state, busyAttempt: state.busyAttempt + 1 }
+    case 'day/failed':
+      return { ...state, dayLoading: false, dayError: action.message }
+    case 'day/reload':
+      return { ...state, dayVersion: state.dayVersion + 1 }
     case 'planned':
-      return { ...state, result: action.result, stale: false }
+      return {
+        ...state,
+        result: action.result,
+        replaceIds: action.replaceIds,
+        stale: false,
+        commit: { status: 'idle' },
+      }
+    case 'commit/set':
+      return { ...state, commit: action.commit }
+    case 'plan/clear':
+      return { ...state, result: null, replaceIds: [], stale: false }
   }
 }

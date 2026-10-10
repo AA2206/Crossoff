@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayQueryRange, wallClockMinutes } from './time'
+import { dayQueryRange, localDateTime, wallClockMinutes } from './time'
 
 const NY = 'America/New_York'
 
@@ -71,5 +71,16 @@ describe('dayQueryRange', () => {
       timeMin: '2026-10-11T12:00:00.000Z',
       timeMax: '2026-10-13T12:00:00.000Z',
     })
+  })
+})
+
+describe('localDateTime', () => {
+  it('formats wall-clock minutes as a local date-time', () => {
+    expect(localDateTime('2026-10-12', 570)).toBe('2026-10-12T09:30:00')
+    expect(localDateTime('2026-10-12', 0)).toBe('2026-10-12T00:00:00')
+  })
+
+  it('rolls 1440 over to midnight the next day, across months', () => {
+    expect(localDateTime('2026-10-31', 1440)).toBe('2026-11-01T00:00:00')
   })
 })

@@ -20,6 +20,19 @@ export function dayQueryRange(date: string) {
 }
 
 /**
+ * Wall-clock minutes on `date` as the local date-time Google takes alongside
+ * a time zone: (2026-10-12, 570) → "2026-10-12T09:30:00". 1440 is midnight
+ * at the start of the next day.
+ */
+export function localDateTime(date: string, minutes: Minutes): string {
+  const day = new Date(`${date}T00:00:00Z`)
+  day.setUTCDate(day.getUTCDate() + Math.floor(minutes / DAY))
+  const m = minutes % DAY
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${day.toISOString().slice(0, 10)}T${pad(Math.floor(m / 60))}:${pad(m % 60)}:00`
+}
+
+/**
  * An instant as wall-clock minutes on `date` in `timeZone`: 0 if it falls
  * before that day, 1440 if after. Wall-clock time is what the planner works
  * in, so a 9 am meeting is 540 even on a daylight-saving day.

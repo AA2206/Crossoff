@@ -46,8 +46,8 @@ describe('getBusy', () => {
     const result = await getBusy('2026-10-12', ['primary', 'team'], NY)
     expect(result).toEqual({
       busy: [
-        { start: 600, end: 660 },
-        { start: 0, end: 60 },
+        { calendarId: 'primary', start: 600, end: 660 },
+        { calendarId: 'team', start: 0, end: 60 },
       ],
       failedCalendarIds: [],
     })
@@ -85,7 +85,7 @@ describe('getBusy', () => {
       },
     })
     expect(await getBusy('2026-10-12', ['primary'], NY)).toEqual({
-      busy: [{ start: 540, end: 570 }],
+      busy: [{ calendarId: 'primary', start: 540, end: 570 }],
       failedCalendarIds: [],
     })
   })

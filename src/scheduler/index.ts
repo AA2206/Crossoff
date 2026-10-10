@@ -1,4 +1,5 @@
 export { buildFreeStretches } from './freeStretches'
+export { mergeIntervals, subtractIntervals } from './intervals'
 export { placeSessions } from './placeSessions'
 export { plan, type PlanInput } from './plan'
 export { rankSessions, splitIntoSessions } from './sessions'

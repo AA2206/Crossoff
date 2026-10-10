@@ -1,15 +1,15 @@
+import type { PlannerEvent } from '../../calendar'
 import type { Interval, PlacedSession, SetAside, Task } from '../../scheduler'
 import { taskColor } from '../colors'
+import { sessionTitle } from '../labels'
 import { formatHour, formatTime } from '../time'
 
 const PX_PER_MINUTE = 1.1
 
-const sessionTitle = (name: string, s: PlacedSession) =>
-  s.rounds > 1 ? `${name} (${s.round}/${s.rounds})` : name
-
 export function Timeline({
   range,
   busy,
+  existing,
   placed,
   setAsides,
   tasks,
@@ -17,6 +17,8 @@ export function Timeline({
 }: {
   range: Interval
   busy: Interval[]
+  /** Crossoff sessions already in the calendar. */
+  existing: PlannerEvent[]
   placed: PlacedSession[]
   setAsides: SetAside[]
   tasks: Task[]
@@ -79,17 +81,31 @@ export function Timeline({
         </div>
       ))}
 
+      {existing.filter(visible).map((e) => (
+        <div
+          key={e.id}
+          className="absolute right-24 left-1 overflow-hidden rounded border-2 border-sky-700 bg-sky-50 px-2 text-xs leading-4 text-sky-900"
+          style={box(e)}
+          title={`${e.title}, ${formatTime(e.start)}–${formatTime(e.end)} (in your calendar)`}
+        >
+          <span className="font-medium">{e.title}</span>{' '}
+          <span className="opacity-80">
+            {formatTime(e.start)}–{formatTime(e.end)} · in calendar
+          </span>
+        </div>
+      ))}
+
       {placed.map((s) => {
         const index = taskIndex.get(s.taskId) ?? 0
-        const name = tasks[index]?.name ?? ''
+        const title = sessionTitle(tasks, s)
         return (
           <div
             key={`${s.taskId}-${s.round}`}
             className={`absolute right-24 left-1 overflow-hidden rounded px-2 text-xs leading-4 text-white shadow-sm ${taskColor(index)} ${stale ? 'opacity-40' : ''}`}
             style={box(s)}
-            title={`${sessionTitle(name, s)}, ${formatTime(s.start)}–${formatTime(s.end)}`}
+            title={`${title}, ${formatTime(s.start)}–${formatTime(s.end)}`}
           >
-            <span className="font-medium">{sessionTitle(name, s)}</span>{' '}
+            <span className="font-medium">{title}</span>{' '}
             <span className="opacity-80">
               {formatTime(s.start)}–{formatTime(s.end)}
             </span>

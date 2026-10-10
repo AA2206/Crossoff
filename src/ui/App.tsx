@@ -1,4 +1,10 @@
-import { useEffect, useReducer, useState, type Dispatch } from 'react'
+import {
+  useEffect,
+  useReducer,
+  useState,
+  type Dispatch,
+  type ReactNode,
+} from 'react'
 import {
   ConnectError,
   connect,
@@ -9,24 +15,34 @@ import {
 import {
   AuthError,
   browserTimeZone,
+  busyForPlanning,
+  commitPlan,
+  createSessionEvent,
+  deletePlannerEvents,
   getBusy,
   listCalendars,
-  type BusyResult,
+  listPlannerEvents,
+  replaceableEvents,
   type CalendarInfo,
 } from '../calendar'
 import {
   hasErrors,
+  mergeIntervals,
   plan,
   validateSetAside,
   validateSettings,
   validateTask,
+  type Minutes,
+  type PlacedSession,
 } from '../scheduler'
 import { loadSaved, save } from '../storage'
+import { CommitPanel } from './components/CommitPanel'
 import { DaySettings } from './components/DaySettings'
 import { Report } from './components/Report'
 import { SetAsideList } from './components/SetAsideList'
 import { TaskList } from './components/TaskList'
 import { Timeline } from './components/Timeline'
+import { sessionTitle } from './labels'
 import {
   DEFAULT_SETTINGS,
   availableCalendarIds,
@@ -34,6 +50,7 @@ import {
   initialState,
   reducer,
   type Action,
+  type Day,
   type State,
 } from './state'
 import { minutesNow, todayISO } from './time'
@@ -56,7 +73,7 @@ function connectErrorMessage(error: unknown) {
         return `Couldn't connect to Google: ${error.message}`
     }
   }
-  return `Couldn't connect to Google: ${error instanceof Error ? error.message : String(error)}`
+  return `Couldn't connect to Google: ${errorMessage(error)}`
 }
 
 const errorMessage = (error: unknown) =>
@@ -78,13 +95,39 @@ async function connectCalendar(
   }
 }
 
+/** Busy times and Crossoff's own events for a day. */
+async function loadDay(
+  date: string,
+  calendarIds: string[],
+): Promise<Omit<Day, 'version'>> {
+  const timeZone = browserTimeZone()
+  const [busy, plannerEvents] = await Promise.all([
+    getBusy(date, calendarIds, timeZone),
+    listPlannerEvents(date, timeZone),
+  ])
+  return {
+    key: busyKey(date, calendarIds),
+    busy: busy.busy,
+    failedCalendarIds: busy.failedCalendarIds,
+    plannerEvents,
+  }
+}
+
+/** For today, the current time: nothing is planned or replaced before it. */
+const nowFor = (date: string) =>
+  date === todayISO() ? minutesNow() : undefined
+const cutoffOf = (now: Minutes | undefined) =>
+  now === undefined ? 0 : Math.ceil(now / 5) * 5
+
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     initialState(loadSaved()),
   )
   const [generating, setGenerating] = useState(false)
-  const { tasks, setAsides, settings, connection, date } = state
+  const { tasks, setAsides, settings, connection, date, result, commit } = state
   const key = busyKey(date, settings.calendarIds)
+  const setCommit = (c: State['commit']) =>
+    dispatch({ type: 'commit/set', commit: c })
 
   useEffect(() => {
     save({ tasks, setAsides, settings })
@@ -95,35 +138,44 @@ export default function App() {
     loadGis().catch(() => {})
   }, [])
 
-  // Show the day's real busy times as soon as we're connected.
-  const busyIsCurrent = state.busy?.key === key
+  // Show the day's calendar as soon as we're connected, and reload it when
+  // the date or calendars change or after a commit.
+  const dayIsCurrent =
+    state.day?.key === key && state.day.version === state.dayVersion
   useEffect(() => {
-    if (connection !== 'connected' || busyIsCurrent) return
+    if (connection !== 'connected' || dayIsCurrent) return
     if (settings.calendarIds.length === 0) return
     let cancelled = false
-    dispatch({ type: 'busy/loading' })
-    getBusy(date, settings.calendarIds, browserTimeZone()).then(
-      (result) => {
-        if (!cancelled)
-          dispatch({ type: 'busy/loaded', key, ...toBusy(result) })
+    dispatch({ type: 'day/loading' })
+    loadDay(date, settings.calendarIds).then(
+      (day) => {
+        if (!cancelled) dispatch({ type: 'day/loaded', day })
       },
       (error: unknown) => {
         if (cancelled) return
         if (error instanceof AuthError) dispatch({ type: 'auth/expired' })
-        else dispatch({ type: 'busy/failed', message: errorMessage(error) })
+        else dispatch({ type: 'day/failed', message: errorMessage(error) })
       },
     )
     return () => {
       cancelled = true
     }
-  }, [
-    connection,
-    key,
-    busyIsCurrent,
-    date,
-    settings.calendarIds,
-    state.busyAttempt,
-  ])
+  }, [connection, key, dayIsCurrent, date, settings.calendarIds])
+
+  /** A usable token, connecting first if needed. Call straight from a click. */
+  async function ensureConnected(): Promise<string[] | null> {
+    if (getToken()) return settings.calendarIds
+    const calendars = await connectCalendar(dispatch)
+    return calendars && availableCalendarIds(settings.calendarIds, calendars)
+  }
+
+  function handleCalendarError(error: unknown, fallback: string) {
+    if (error instanceof AuthError) {
+      dispatch({ type: 'auth/expired' })
+      return `${fallback}: your Google connection expired.`
+    }
+    return `${fallback}: ${errorMessage(error)}`
+  }
 
   const invalid =
     hasErrors(validateSettings(settings)) ||
@@ -135,41 +187,138 @@ export default function App() {
       : invalid
         ? 'Fix the highlighted fields first.'
         : null
+  const shownDay = state.day?.key === key ? state.day : null
+  const committing = commit.status === 'working'
+  const replanning = date === todayISO() && !!shownDay?.plannerEvents.length
 
   async function generate() {
     setGenerating(true)
     try {
       // Connecting first, inside the click, keeps the popup from being blocked.
-      let calendarIds = settings.calendarIds
-      if (!getToken()) {
-        const calendars = await connectCalendar(dispatch)
-        if (!calendars) return
-        calendarIds = availableCalendarIds(calendarIds, calendars)
-      }
-      // Fetch fresh busy times so the plan reflects the calendar right now.
-      const result = toBusy(await getBusy(date, calendarIds, browserTimeZone()))
-      dispatch({
-        type: 'busy/loaded',
-        key: busyKey(date, calendarIds),
-        ...result,
-      })
+      const calendarIds = await ensureConnected()
+      if (!calendarIds) return
+      // Load fresh so the plan reflects the calendar right now.
+      const day = await loadDay(date, calendarIds)
+      dispatch({ type: 'day/loaded', day })
+      const now = nowFor(date)
+      // Crossoff sessions that haven't started yet get replaced, so their
+      // time is free for the new plan. Earlier ones stay busy.
+      const replaceable = replaceableEvents(day.plannerEvents, cutoffOf(now))
       dispatch({
         type: 'planned',
+        replaceIds: replaceable.map((e) => e.id),
         result: plan({
           tasks,
           setAsides,
           settings: { ...settings, calendarIds },
-          busy: result.intervals,
-          now: date === todayISO() ? minutesNow() : undefined,
+          busy: busyForPlanning(day.busy, replaceable),
+          now,
         }),
       })
     } catch (error) {
       if (error instanceof AuthError) dispatch({ type: 'auth/expired' })
-      else dispatch({ type: 'busy/failed', message: errorMessage(error) })
+      else dispatch({ type: 'day/failed', message: errorMessage(error) })
     } finally {
       setGenerating(false)
     }
   }
+
+  async function commitSessions(fromIndex = 0, createdSoFar: string[] = []) {
+    if (!result) return
+    if (!(await ensureConnected())) return
+    const total = result.placed.length
+    const progress = (n: number) =>
+      setCommit({
+        status: 'working',
+        label: `Adding sessions… ${n} of ${total}`,
+      })
+    progress(createdSoFar.length)
+    const timeZone = browserTimeZone()
+    const outcome = await commitPlan<PlacedSession>({
+      sessions: result.placed.slice(fromIndex),
+      // A retry only needs the old plan removed once the new one is complete.
+      replaceIds: state.replaceIds,
+      create: (s) =>
+        createSessionEvent(
+          { title: sessionTitle(tasks, s), start: s.start, end: s.end },
+          date,
+          timeZone,
+        ),
+      remove: deletePlannerEvents,
+      onCreated: (n) => progress(createdSoFar.length + n),
+    })
+    switch (outcome.kind) {
+      case 'done':
+        setCommit({
+          status: 'done',
+          created: total,
+          replaced: state.replaceIds.length,
+        })
+        // The calendar now shows the plan; the preview is no longer needed.
+        dispatch({ type: 'plan/clear' })
+        break
+      case 'create-failed':
+        setCommit({
+          status: 'create-failed',
+          createdIds: [...createdSoFar, ...outcome.createdIds],
+          remainingIndex: fromIndex + outcome.failedIndex,
+          message: handleCalendarError(outcome.error, "Couldn't add a session"),
+        })
+        break
+      case 'remove-failed':
+        setCommit({
+          status: 'remove-failed',
+          created: total,
+          leftoverIds: outcome.leftoverIds,
+          message: handleCalendarError(outcome.error, 'Google said'),
+        })
+        dispatch({ type: 'plan/clear' })
+        break
+    }
+    dispatch({ type: 'day/reload' })
+  }
+
+  /** Deletes Crossoff events by id, then shows `after` or an error. */
+  async function removeEvents(
+    ids: string[],
+    label: string,
+    after: State['commit'],
+  ) {
+    if (!(await ensureConnected())) return
+    setCommit({ status: 'working', label })
+    try {
+      await deletePlannerEvents(ids)
+      setCommit(after)
+    } catch (error) {
+      setCommit({
+        status: 'error',
+        message: handleCalendarError(error, "Couldn't remove sessions"),
+      })
+    }
+    dispatch({ type: 'day/reload' })
+  }
+
+  function clearDay() {
+    const events = shownDay?.plannerEvents ?? []
+    const ok = window.confirm(
+      `Remove Crossoff's ${events.length} session${events.length === 1 ? '' : 's'} from this day? Your other events aren't touched.`,
+    )
+    if (!ok) return
+    dispatch({ type: 'plan/clear' })
+    removeEvents(
+      events.map((e) => e.id),
+      'Removing sessions…',
+      { status: 'cleared', count: events.length },
+    )
+  }
+
+  const commitBlocker = !result
+    ? 'Generate a plan to commit it.'
+    : state.stale
+      ? 'Generate again to commit the updated plan.'
+      : result.placed.length === 0
+        ? 'Nothing to add: no sessions fit.'
+        : null
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -194,10 +343,19 @@ export default function App() {
             <button
               type="button"
               className={`w-full ${primaryButtonClass}`}
-              disabled={!!blocker || generating || connection === 'connecting'}
+              disabled={
+                !!blocker ||
+                generating ||
+                committing ||
+                connection === 'connecting'
+              }
               onClick={generate}
             >
-              {generating ? 'Planning…' : 'Generate plan'}
+              {generating
+                ? 'Planning…'
+                : replanning
+                  ? 'Re-plan from now'
+                  : 'Generate plan'}
             </button>
             <p className="mt-2 text-center text-xs text-gray-500">
               {blocker ??
@@ -210,45 +368,72 @@ export default function App() {
 
         <Preview
           state={state}
-          busyIsCurrent={busyIsCurrent}
+          shownDay={shownDay}
           onConnect={() => connectCalendar(dispatch)}
           onDisconnect={() => {
             disconnect()
             dispatch({ type: 'auth/disconnected' })
           }}
-          onRetry={() => dispatch({ type: 'busy/retry' })}
+          onRetry={() => dispatch({ type: 'day/reload' })}
+          commitPanel={
+            <CommitPanel
+              commit={commit}
+              canCommit={!commitBlocker && !generating}
+              disabledReason={commitBlocker}
+              replaceCount={state.replaceIds.length}
+              sessionCount={result?.placed.length ?? 0}
+              existingCount={shownDay?.plannerEvents.length ?? 0}
+              onCommit={() => commitSessions()}
+              onRetryRemaining={() =>
+                commit.status === 'create-failed' &&
+                commitSessions(commit.remainingIndex, commit.createdIds)
+              }
+              onUndo={() =>
+                commit.status === 'create-failed' &&
+                removeEvents(commit.createdIds, 'Undoing…', {
+                  status: 'undone',
+                })
+              }
+              onRetryRemove={() =>
+                commit.status === 'remove-failed' &&
+                removeEvents(commit.leftoverIds, 'Removing old sessions…', {
+                  status: 'done',
+                  created: commit.created,
+                  replaced: commit.leftoverIds.length,
+                })
+              }
+              onClear={clearDay}
+            />
+          }
         />
       </div>
     </div>
   )
 }
 
-const toBusy = (result: BusyResult) => ({
-  intervals: result.busy,
-  failedCalendarIds: result.failedCalendarIds,
-})
-
 function Preview({
   state,
-  busyIsCurrent,
+  shownDay,
   onConnect,
   onDisconnect,
   onRetry,
+  commitPanel,
 }: {
   state: State
-  busyIsCurrent: boolean
+  shownDay: Day | null
   onConnect: () => void
   onDisconnect: () => void
   onRetry: () => void
+  commitPanel: ReactNode
 }) {
   const {
     connection,
     connectError,
-    busy,
-    busyLoading,
-    busyError,
+    dayLoading,
+    dayError,
     calendars,
     result,
+    replaceIds,
     stale,
     settings,
     setAsides,
@@ -264,12 +449,21 @@ function Preview({
     settings.workingWindow.end > settings.workingWindow.start
       ? settings.workingWindow
       : DEFAULT_SETTINGS.workingWindow
-  const failedNames = (busyIsCurrent ? busy!.failedCalendarIds : []).map(
+  const failedNames = (shownDay?.failedCalendarIds ?? []).map(
     (id) => calendars?.find((c) => c.id === id)?.name ?? id,
+  )
+  const plannerEvents = shownDay?.plannerEvents ?? []
+  // Crossoff's own sessions are drawn as themselves, not as gray busy time.
+  // Ones the new plan replaces are hidden behind it.
+  const existing = result
+    ? plannerEvents.filter((e) => !replaceIds.includes(e.id))
+    : plannerEvents
+  const busy = mergeIntervals(
+    busyForPlanning(shownDay?.busy ?? [], plannerEvents),
   )
   // Keep showing the day after the token expires, so nothing is lost.
   const showDay =
-    connection === 'connected' || (connection === 'expired' && busy)
+    connection === 'connected' || (connection === 'expired' && shownDay)
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:sticky lg:top-6 lg:self-start">
@@ -329,17 +523,17 @@ function Preview({
         </div>
       ) : (
         <>
-          {busyLoading && (
+          {dayLoading && (
             <p className="mb-3 text-sm text-gray-500" role="status">
               Loading your calendar…
             </p>
           )}
-          {busyError && (
+          {dayError && (
             <div
               className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
               role="alert"
             >
-              Couldn't load your calendar: {busyError}
+              Couldn't load your calendar: {dayError}
               <button
                 type="button"
                 className="rounded-md border border-red-300 px-3 py-1 hover:bg-red-100"
@@ -369,21 +563,15 @@ function Preview({
           <div className="max-h-[70vh] overflow-y-auto pt-2 pr-1">
             <Timeline
               range={range}
-              busy={busyIsCurrent ? busy!.intervals : []}
+              busy={busy}
+              existing={existing}
               placed={result?.placed ?? []}
               setAsides={setAsides}
               tasks={tasks}
               stale={stale}
             />
           </div>
-          <button
-            type="button"
-            disabled
-            title="Writing to your calendar isn't available yet"
-            className={`mt-4 w-full ${primaryButtonClass}`}
-          >
-            Commit to calendar
-          </button>
+          {commitPanel}
         </>
       )}
     </section>
