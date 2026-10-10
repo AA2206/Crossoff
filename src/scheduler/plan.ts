@@ -2,6 +2,7 @@ import { blockedTime, buildFreeStretches, cutoffFor } from './freeStretches'
 import { placeSessions } from './placeSessions'
 import { rankSessions, splitIntoSessions } from './sessions'
 import { conflictingPairs, setAsideFreeMinutes } from './setAsides'
+import { spreadSessions } from './spreadSessions'
 import type {
   Interval,
   Minutes,
@@ -33,21 +34,24 @@ export function plan({
 }: PlanInput): PlanResult {
   const cutoff = cutoffFor(now)
   const blocked = blockedTime(busy, settings.bufferMinutes)
-  const { placed, unplaced } = placeSessions(
-    rankSessions(splitIntoSessions(tasks)),
-    {
-      stretches: buildFreeStretches(busy, settings, now),
-      setAsides,
-      blocked,
-      cutoff,
-      minBreakMinutes: settings.minBreakMinutes,
-    },
-  )
-  // Spread out mode (spreadSessions) arrives in Sprint 2; until then every
-  // plan is packed into the earliest slots.
+  const ctx = {
+    stretches: buildFreeStretches(busy, settings, now),
+    setAsides,
+    blocked,
+    cutoff,
+    minBreakMinutes: settings.minBreakMinutes,
+  }
+  const packed = placeSessions(rankSessions(splitIntoSessions(tasks)), ctx)
+  const placed =
+    settings.mode === 'spread'
+      ? spreadSessions(packed.placed, {
+          ...ctx,
+          workingWindow: settings.workingWindow,
+        })
+      : packed.placed
   return {
     placed,
-    unscheduled: unscheduledReport(tasks, unplaced),
+    unscheduled: unscheduledReport(tasks, packed.unplaced),
     warnings: setAsideWarnings(setAsides, blocked, placed, cutoff),
   }
 }

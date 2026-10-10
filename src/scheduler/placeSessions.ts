@@ -1,5 +1,5 @@
 import { STEP, roundUp } from './intervals'
-import { setAsideFreeMinutes } from './setAsides'
+import { requiredMinutes, setAsideFreeMinutes } from './setAsides'
 import type {
   Interval,
   Minutes,
@@ -26,17 +26,7 @@ export function placeSessions(
   ranked: Session[],
   ctx: PlaceContext,
 ): { placed: PlacedSession[]; unplaced: Session[] } {
-  // A set-aside that calendar events already squeeze keeps whatever it has
-  // left, so it is reported rather than blocking every placement.
-  const required = new Map(
-    ctx.setAsides.map((s) => [
-      s.id,
-      Math.min(
-        s.durationMinutes,
-        setAsideFreeMinutes(s, ctx.blocked, [], ctx.cutoff),
-      ),
-    ]),
-  )
+  const required = requiredMinutes(ctx.setAsides, ctx.blocked, ctx.cutoff)
   const remaining = [...ranked]
   const placed: PlacedSession[] = []
 

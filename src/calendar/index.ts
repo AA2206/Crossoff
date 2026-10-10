@@ -1,1 +1,2 @@
-// Placeholder: see the spec's Project structure section.
+// Stand-in for Google Calendar until Sprint 3 swaps in freeBusy.
+export { getMockBusy as getBusy } from './mock'

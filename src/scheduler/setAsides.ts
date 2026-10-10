@@ -33,6 +33,23 @@ export const setAsideFreeMinutes = (
 ) => longest(setAsideFree(setAside, blocked, placed, cutoff))
 
 /**
+ * Minutes each set-aside must keep free, by id. A set-aside that calendar
+ * events already squeeze keeps whatever it has left, so it is reported rather
+ * than blocking every placement.
+ */
+export const requiredMinutes = (
+  setAsides: SetAside[],
+  blocked: Interval[],
+  cutoff: Minutes,
+) =>
+  new Map(
+    setAsides.map((s) => [
+      s.id,
+      Math.min(s.durationMinutes, setAsideFreeMinutes(s, blocked, [], cutoff)),
+    ]),
+  )
+
+/**
  * Whether two set-asides can both be taken without overlapping. Trying each
  * order and taking the first block as early as possible is exhaustive for two.
  */
