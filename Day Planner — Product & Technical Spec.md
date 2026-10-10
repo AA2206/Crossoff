@@ -248,7 +248,7 @@ Inside the scheduler, times are plain minute numbers; they're converted to real 
 **Calendar functions**
 
 - `listCalendars()`, `getBusy(date, calendarIds)`, `listPlannerEvents(date)`, `deletePlannerEvents(ids)`, `createSessionEvents(sessions)`.
-- All share one `gfetch` helper that adds the token, retries 429 and 5xx responses with backoff (up to 3 times), and throws a distinct error on 401 so the UI shows Reconnect.
+- All share one `gfetch` helper that adds the token, retries rate-limit responses (429, or 403 with a rate-limit reason) and 5xx with backoff (up to 3 times), and throws a distinct error on 401 so the UI shows Reconnect.
 
 **UI and state**
 
@@ -268,7 +268,7 @@ Testing focuses on the scheduler: one test per rule (buffers, rounding remainder
 
 | Case | Behaviour |
 | --- | --- |
-| All-day events | Ignored by default (they rarely mean busy); a setting can count them |
+| All-day events | Follow the event's own Free/Busy setting: freeBusy already skips ones marked Free (the usual default) and blocks the day for ones marked Busy |
 | Events marked "free" | Already excluded by freeBusy |
 | Declined invitations | Not returned as busy by freeBusy |
 | Overlapping busy blocks | Merged before computing free slots |
@@ -378,7 +378,7 @@ Six one-week sprints, Monday to Sunday, take Crossoff from an empty repo to a wo
 ### Sprint 3 — Google Calendar connection (Nov 2 – 8)
 
 - [ ] Connect, Reconnect and Disconnect using the GIS token client; token kept in memory only
-- [ ] `gfetch` helper with retries for 429 and 5xx and a distinct 401 error
+- [ ] `gfetch` helper with retries for rate limits (429, or 403 with a rate-limit reason) and 5xx, and a distinct 401 error
 - [ ] `listCalendars` feeding the Calendars to check setting
 - [ ] `getBusy` via freeBusy, replacing the mock, with time-zone conversion to minutes
 - [ ] Preview shows the real day's events before Generate is pressed

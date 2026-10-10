@@ -45,5 +45,7 @@ export function validateSettings(settings: Settings): Errors<Settings> {
     errors.bufferMinutes = '0 or more, in 5-minute steps'
   if (!inSteps(settings.minBreakMinutes) || settings.minBreakMinutes < 0)
     errors.minBreakMinutes = '0 or more, in 5-minute steps'
+  if (settings.calendarIds.length === 0)
+    errors.calendarIds = 'Pick at least one calendar to check'
   return errors
 }

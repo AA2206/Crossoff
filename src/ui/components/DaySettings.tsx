@@ -1,4 +1,5 @@
 import type { Dispatch } from 'react'
+import type { CalendarInfo } from '../../calendar'
 import { validateSettings, type Mode, type Settings } from '../../scheduler'
 import type { Action } from '../state'
 import { todayISO } from '../time'
@@ -13,10 +14,13 @@ const MODES: { mode: Mode; label: string; hint: string }[] = [
 export function DaySettings({
   date,
   settings,
+  calendars,
   dispatch,
 }: {
   date: string
   settings: Settings
+  /** Null until Google Calendar is connected. */
+  calendars: CalendarInfo[] | null
   dispatch: Dispatch<Action>
 }) {
   const errors = validateSettings(settings)
@@ -79,6 +83,33 @@ export function DaySettings({
           </button>
         ))}
       </div>
+
+      {calendars && calendars.length > 1 && (
+        <fieldset className="mt-3">
+          <legend className="text-xs font-medium text-gray-600">
+            Calendars to check
+          </legend>
+          <div className="mt-1 space-y-1">
+            {calendars.map((c) => (
+              <label key={c.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-gray-900"
+                  checked={settings.calendarIds.includes(c.id)}
+                  onChange={(e) =>
+                    update({
+                      calendarIds: e.target.checked
+                        ? [...settings.calendarIds, c.id]
+                        : settings.calendarIds.filter((id) => id !== c.id),
+                    })
+                  }
+                />
+                <span className="truncate">{c.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       <details className="mt-3 text-sm">
         <summary className="cursor-pointer text-gray-600 select-none">

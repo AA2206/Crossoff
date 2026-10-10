@@ -68,6 +68,12 @@ describe('validateSettings', () => {
     ).toHaveProperty('workingWindow')
   })
 
+  it('requires at least one calendar', () => {
+    expect(validateSettings(settings({ calendarIds: [] }))).toHaveProperty(
+      'calendarIds',
+    )
+  })
+
   it('rejects negative or off-step gaps', () => {
     expect(validateSettings(settings({ bufferMinutes: -5 }))).toHaveProperty(
       'bufferMinutes',

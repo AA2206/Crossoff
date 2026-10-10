@@ -5,6 +5,7 @@ import type {
   Settings,
   Task,
 } from '../scheduler'
+import type { CalendarInfo } from '../calendar'
 import type { Saved } from '../storage'
 import { todayISO } from './time'
 
@@ -21,9 +22,19 @@ export interface State {
   settings: Settings
   tasks: Task[]
   setAsides: SetAside[]
-  connected: boolean
-  /** The day's calendar events, once loaded. */
-  busy: Interval[] | null
+  connection: 'disconnected' | 'connecting' | 'connected' | 'expired'
+  connectError: string | null
+  calendars: CalendarInfo[] | null
+  /** Busy times for the date and calendars in `key`, once loaded. */
+  busy: {
+    key: string
+    intervals: Interval[]
+    failedCalendarIds: string[]
+  } | null
+  busyLoading: boolean
+  busyError: string | null
+  /** Bumped by Retry so the busy times load again. */
+  busyAttempt: number
   result: PlanResult | null
   /** Inputs changed since the plan was generated. */
   stale: boolean
@@ -39,8 +50,20 @@ export type Action =
   | { type: 'setAside/remove'; id: string }
   | { type: 'settings/update'; patch: Partial<Settings> }
   | { type: 'date/set'; date: string }
-  | { type: 'connected' }
-  | { type: 'busy/loaded'; busy: Interval[] }
+  | { type: 'auth/connecting' }
+  | { type: 'auth/connected'; calendars: CalendarInfo[] }
+  | { type: 'auth/failed'; message: string }
+  | { type: 'auth/expired' }
+  | { type: 'auth/disconnected' }
+  | { type: 'busy/loading' }
+  | {
+      type: 'busy/loaded'
+      key: string
+      intervals: Interval[]
+      failedCalendarIds: string[]
+    }
+  | { type: 'busy/failed'; message: string }
+  | { type: 'busy/retry' }
   | { type: 'planned'; result: PlanResult }
 
 export function initialState(saved: Partial<Saved>): State {
@@ -49,11 +72,26 @@ export function initialState(saved: Partial<Saved>): State {
     settings: { ...DEFAULT_SETTINGS, ...saved.settings },
     tasks: saved.tasks ?? [],
     setAsides: saved.setAsides ?? [],
-    connected: false,
+    connection: 'disconnected',
+    connectError: null,
+    calendars: null,
     busy: null,
+    busyLoading: false,
+    busyError: null,
+    busyAttempt: 0,
     result: null,
     stale: false,
   }
+}
+
+/** Identifies which busy times the current inputs need. */
+export const busyKey = (date: string, calendarIds: string[]) =>
+  `${date}|${calendarIds.join(',')}`
+
+/** Saved calendar choices that still exist, falling back to the primary. */
+export function availableCalendarIds(ids: string[], calendars: CalendarInfo[]) {
+  const kept = ids.filter((id) => calendars.some((c) => c.id === id))
+  return kept.length > 0 ? kept : ['primary']
 }
 
 const newId = () => crypto.randomUUID()
@@ -123,11 +161,57 @@ export function reducer(state: State, action: Action): State {
         settings: { ...state.settings, ...action.patch },
       })
     case 'date/set':
-      return edited(state, { date: action.date, busy: null })
-    case 'connected':
-      return { ...state, connected: true }
+      return edited(state, { date: action.date })
+    case 'auth/connecting':
+      return { ...state, connection: 'connecting', connectError: null }
+    case 'auth/connected':
+      return {
+        ...state,
+        connection: 'connected',
+        calendars: action.calendars,
+        settings: {
+          ...state.settings,
+          calendarIds: availableCalendarIds(
+            state.settings.calendarIds,
+            action.calendars,
+          ),
+        },
+      }
+    case 'auth/failed':
+      return {
+        ...state,
+        connection: state.busy ? 'expired' : 'disconnected',
+        connectError: action.message,
+      }
+    case 'auth/expired':
+      return { ...state, connection: 'expired', busyLoading: false }
+    case 'auth/disconnected':
+      return {
+        ...state,
+        connection: 'disconnected',
+        connectError: null,
+        calendars: null,
+        busy: null,
+        busyError: null,
+        result: null,
+        stale: false,
+      }
+    case 'busy/loading':
+      return { ...state, busyLoading: true, busyError: null }
     case 'busy/loaded':
-      return { ...state, busy: action.busy }
+      return {
+        ...state,
+        busyLoading: false,
+        busy: {
+          key: action.key,
+          intervals: action.intervals,
+          failedCalendarIds: action.failedCalendarIds,
+        },
+      }
+    case 'busy/failed':
+      return { ...state, busyLoading: false, busyError: action.message }
+    case 'busy/retry':
+      return { ...state, busyAttempt: state.busyAttempt + 1 }
     case 'planned':
       return { ...state, result: action.result, stale: false }
   }
