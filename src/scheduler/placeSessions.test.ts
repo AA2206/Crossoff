@@ -25,11 +25,7 @@ const lunch: SetAside = {
 describe('placeSessions', () => {
   it('reproduces the worked example from the spec', () => {
     const { placed, unplaced } = place(
-      [
-        task('Essay', 1, 120, 2),
-        task('Problem set', 2, 90, 2),
-        task('Email', 3, 30),
-      ],
+      [task('Essay', 120, 2), task('Problem set', 90, 2), task('Email', 30)],
       { stretches: [iv('9:00', '10:30'), iv('11:30', '17:00')] },
     )
     expect(describePlaced(placed)).toEqual([
@@ -43,21 +39,21 @@ describe('placeSessions', () => {
   })
 
   it('keeps the minimum break between sessions', () => {
-    const { placed } = place([task('a', 1, 30), task('b', 1, 30)], {
+    const { placed } = place([task('a', 30), task('b', 30)], {
       minBreakMinutes: 25,
     })
     expect(describePlaced(placed)).toEqual(['a 1 9:00–9:30', 'b 1 9:55–10:25'])
   })
 
   it('allows a session that ends exactly at the end of a stretch', () => {
-    const { placed } = place([task('a', 1, 60)], {
+    const { placed } = place([task('a', 60)], {
       stretches: [iv('9:00', '10:00')],
     })
     expect(describePlaced(placed)).toEqual(['a 1 9:00–10:00'])
   })
 
   it('fills a gap with a lower-ranked session that fits', () => {
-    const { placed } = place([task('long', 1, 60), task('short', 2, 20)], {
+    const { placed } = place([task('long', 60), task('short', 20)], {
       stretches: [iv('9:00', '9:30'), iv('10:00', '12:00')],
     })
     expect(describePlaced(placed)).toEqual([
@@ -67,7 +63,7 @@ describe('placeSessions', () => {
   })
 
   it('returns sessions that do not fit as unplaced', () => {
-    const { placed, unplaced } = place([task('a', 1, 180, 3)], {
+    const { placed, unplaced } = place([task('a', 180, 3)], {
       stretches: [iv('9:00', '10:00'), iv('11:00', '12:00')],
     })
     expect(placed).toHaveLength(2)
@@ -75,9 +71,7 @@ describe('placeSessions', () => {
   })
 
   describe('set-aside blocks', () => {
-    const fiveHours = ['a', 'b', 'c', 'd', 'e'].map((id, i) =>
-      task(id, i + 1, 60),
-    )
+    const fiveHours = ['a', 'b', 'c', 'd', 'e'].map((id) => task(id, 60))
 
     it('steps forward until a session leaves the block free', () => {
       const { placed } = place(fiveHours, { setAsides: [lunch] })
@@ -91,7 +85,7 @@ describe('placeSessions', () => {
     })
 
     it('leaves the block free even when the window is otherwise fully used', () => {
-      const { placed } = place([task('a', 1, 60, 8)], {
+      const { placed } = place([task('a', 60, 8)], {
         setAsides: [lunch],
         minBreakMinutes: 0,
       })
@@ -107,7 +101,7 @@ describe('placeSessions', () => {
 
     it('still protects what is left of a block events already squeeze', () => {
       // Busy 12:00–13:30 leaves only 90 continuous minutes of a 120-minute block.
-      const { placed } = place([task('a', 1, 30, 6)], {
+      const { placed } = place([task('a', 30, 6)], {
         stretches: [iv('9:00', '12:00'), iv('13:30', '17:00')],
         blocked: [iv('12:00', '13:30')],
         setAsides: [{ ...lunch, durationMinutes: 120 }],
@@ -119,7 +113,7 @@ describe('placeSessions', () => {
     })
 
     it('ignores windows that have already ended', () => {
-      const { placed } = place([task('a', 1, 60)], {
+      const { placed } = place([task('a', 60)], {
         stretches: [iv('16:00', '17:00')],
         cutoff: hm('16:00'),
         setAsides: [lunch],
@@ -130,7 +124,7 @@ describe('placeSessions', () => {
     it('counts only the remaining part of a window in progress', () => {
       // At 13:30 lunch can only be 13:30–15:00, so a 60-minute session may
       // overlap it by at most 30 minutes.
-      const { placed } = place([task('a', 1, 60)], {
+      const { placed } = place([task('a', 60)], {
         stretches: [iv('13:30', '17:00')],
         cutoff: hm('13:30'),
         setAsides: [lunch],

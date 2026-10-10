@@ -17,7 +17,7 @@ interface Edges {
 /**
  * Spread out mode: within each free stretch, shares the slack evenly between
  * sessions, and before or after them where the stretch meets a calendar event.
- * Sessions keep their order and stretch, so the priority order is untouched.
+ * Sessions keep their order and stretch, so the ranking is untouched.
  * A stretch that can't be spread without breaking a set-aside stays packed.
  */
 export function spreadSessions(

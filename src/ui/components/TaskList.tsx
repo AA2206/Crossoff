@@ -36,18 +36,23 @@ export function TaskList({
           What do you want to get done? Add a task to start.
         </p>
       ) : (
-        <ol className="space-y-3">
-          {tasks.map((task, i) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              index={i}
-              isFirst={i === 0}
-              isLast={i === tasks.length - 1}
-              dispatch={dispatch}
-            />
-          ))}
-        </ol>
+        <>
+          <p className="mb-3 text-sm text-gray-500">
+            Most important at the top. Use the arrows to reorder.
+          </p>
+          <ol className="space-y-3">
+            {tasks.map((task, i) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                index={i}
+                isFirst={i === 0}
+                isLast={i === tasks.length - 1}
+                dispatch={dispatch}
+              />
+            ))}
+          </ol>
+        </>
       )}
     </Card>
   )
@@ -116,21 +121,7 @@ function TaskRow({
           </button>
         </div>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-2">
-        <Field label="Priority">
-          <select
-            className={inputClass}
-            value={task.priority}
-            onChange={(e) => update({ priority: Number(e.target.value) })}
-          >
-            {[1, 2, 3, 4, 5].map((p) => (
-              <option key={p} value={p}>
-                {p}
-                {p === 1 ? ' (highest)' : p === 5 ? ' (lowest)' : ''}
-              </option>
-            ))}
-          </select>
-        </Field>
+      <div className="mt-2 grid grid-cols-2 gap-2">
         <Field label="Total min">
           <NumberInput
             value={task.totalMinutes}

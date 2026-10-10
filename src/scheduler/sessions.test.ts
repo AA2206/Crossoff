@@ -3,9 +3,7 @@ import { rankSessions, splitIntoSessions } from './sessions'
 import { task } from './testHelpers'
 
 const durations = (totalMinutes: number, sessions: number) =>
-  splitIntoSessions([task('t', 1, totalMinutes, sessions)]).map(
-    (s) => s.duration,
-  )
+  splitIntoSessions([task('t', totalMinutes, sessions)]).map((s) => s.duration)
 
 describe('splitIntoSessions', () => {
   it('splits evenly when it divides into 5-minute blocks', () => {
@@ -32,14 +30,13 @@ describe('splitIntoSessions', () => {
     }
   })
 
-  it('labels each session with its task, priority and round', () => {
-    expect(splitIntoSessions([task('a', 2, 60, 2), task('b', 1, 30)])).toEqual([
+  it('labels each session with its task, position and round', () => {
+    expect(splitIntoSessions([task('a', 60, 2), task('b', 30)])).toEqual([
       {
         taskId: 'a',
         taskIndex: 0,
         round: 1,
         rounds: 2,
-        priority: 2,
         duration: 30,
       },
       {
@@ -47,7 +44,6 @@ describe('splitIntoSessions', () => {
         taskIndex: 0,
         round: 2,
         rounds: 2,
-        priority: 2,
         duration: 30,
       },
       {
@@ -55,7 +51,6 @@ describe('splitIntoSessions', () => {
         taskIndex: 1,
         round: 1,
         rounds: 1,
-        priority: 1,
         duration: 30,
       },
     ])
@@ -67,7 +62,7 @@ describe('rankSessions', () => {
     rankSessions(splitIntoSessions(tasks)).map((s) => `${s.taskId}${s.round}`)
 
   it('gives every task its first session before any task gets a second', () => {
-    expect(ids([task('a', 1, 90, 3), task('b', 5, 30)])).toEqual([
+    expect(ids([task('a', 90, 3), task('b', 30)])).toEqual([
       'a1',
       'b1',
       'a2',
@@ -75,18 +70,17 @@ describe('rankSessions', () => {
     ])
   })
 
-  it('orders by priority within a round', () => {
-    expect(ids([task('low', 3, 60, 2), task('high', 1, 60, 2)])).toEqual([
-      'high1',
-      'low1',
-      'high2',
-      'low2',
+  it('orders by list position within a round', () => {
+    expect(ids([task('first', 60, 2), task('second', 60, 2)])).toEqual([
+      'first1',
+      'second1',
+      'first2',
+      'second2',
     ])
-  })
-
-  it('breaks priority ties by entry order', () => {
-    expect(ids([task('x', 2, 30), task('y', 2, 30), task('w', 2, 30)])).toEqual(
-      ['x1', 'y1', 'w1'],
-    )
+    expect(ids([task('x', 30), task('y', 30), task('w', 30)])).toEqual([
+      'x1',
+      'y1',
+      'w1',
+    ])
   })
 })

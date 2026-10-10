@@ -32,11 +32,7 @@ describe('spreadSessions', () => {
   it('spreads the worked example, adding a gap after the 10:30–11:30 event', () => {
     expect(
       spread(
-        [
-          task('Essay', 1, 120, 2),
-          task('Problem set', 2, 90, 2),
-          task('Email', 3, 30),
-        ],
+        [task('Essay', 120, 2), task('Problem set', 90, 2), task('Email', 30)],
         {
           stretches: [iv('9:00', '10:30'), iv('11:30', '17:00')],
           blocked: [iv('10:30', '11:30')],
@@ -52,7 +48,7 @@ describe('spreadSessions', () => {
   })
 
   it('adds no gap at the start or end of the working window', () => {
-    expect(spread([task('a', 1, 60), task('b', 2, 60)])).toEqual([
+    expect(spread([task('a', 60), task('b', 60)])).toEqual([
       'a 1 9:00–10:00',
       'b 1 16:00–17:00',
     ])
@@ -60,7 +56,7 @@ describe('spreadSessions', () => {
 
   it('centres a lone session between two calendar events', () => {
     expect(
-      spread([task('a', 1, 60)], {
+      spread([task('a', 60)], {
         stretches: [iv('10:10', '13:50')],
         blocked: [iv('9:00', '10:10'), iv('13:50', '17:00')],
       }),
@@ -68,12 +64,12 @@ describe('spreadSessions', () => {
   })
 
   it('leaves a lone session with no event edges where it is', () => {
-    expect(spread([task('a', 1, 60)])).toEqual(['a 1 9:00–10:00'])
+    expect(spread([task('a', 60)])).toEqual(['a 1 9:00–10:00'])
   })
 
   it('does not treat the re-plan cutoff as an event edge', () => {
     expect(
-      spread([task('a', 1, 60), task('b', 2, 60)], {
+      spread([task('a', 60), task('b', 60)], {
         stretches: [iv('13:00', '17:00')],
         cutoff: hm('13:00'),
       }),
@@ -82,7 +78,7 @@ describe('spreadSessions', () => {
 
   it('leaves a stretch packed when spreading would break the minimum break', () => {
     expect(
-      spread([task('a', 1, 60), task('b', 2, 60)], {
+      spread([task('a', 60), task('b', 60)], {
         stretches: [iv('9:00', '11:15')],
         workingWindow: iv('9:00', '11:15'),
         minBreakMinutes: 15,
@@ -93,7 +89,7 @@ describe('spreadSessions', () => {
   it('rounds gaps down to 5 minutes, leaving the remainder at the end', () => {
     // 480 - 3 × 60 = 300 minutes of slack over 2 gaps.
     expect(
-      spread([task('a', 1, 60), task('b', 2, 60), task('c', 3, 60)], {
+      spread([task('a', 60), task('b', 60), task('c', 60)], {
         stretches: [iv('9:00', '17:05')],
         workingWindow: iv('9:00', '17:05'),
       }),
@@ -102,7 +98,7 @@ describe('spreadSessions', () => {
 
   it('keeps a set-aside block free while spreading', () => {
     const result = spread(
-      ['a', 'b', 'c', 'd', 'e'].map((id, i) => task(id, i + 1, 60)),
+      ['a', 'b', 'c', 'd', 'e'].map((id) => task(id, 60)),
       { setAsides: [lunch] },
     )
     // 480 - 300 - 60 for lunch = 120 minutes over 4 gaps; lunch fits 12–1.
@@ -117,7 +113,7 @@ describe('spreadSessions', () => {
 
   it('is used by plan() only in Spread out mode', () => {
     const input = {
-      tasks: [task('a', 1, 60), task('b', 2, 60)],
+      tasks: [task('a', 60), task('b', 60)],
       setAsides: [],
       busy: [],
     }

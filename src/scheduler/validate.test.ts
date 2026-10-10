@@ -4,32 +4,27 @@ import { validateSetAside, validateSettings, validateTask } from './validate'
 
 describe('validateTask', () => {
   it('accepts a valid task', () => {
-    expect(validateTask(task('Essay', 1, 120, 3))).toEqual({})
+    expect(validateTask(task('Essay', 120, 3))).toEqual({})
   })
 
   it('requires a name', () => {
-    expect(validateTask({ ...task('x', 1, 60), name: '  ' })).toHaveProperty(
+    expect(validateTask({ ...task('x', 60), name: '  ' })).toHaveProperty(
       'name',
     )
   })
 
-  it('requires priority 1 to 5', () => {
-    expect(validateTask(task('x', 0, 60))).toHaveProperty('priority')
-    expect(validateTask(task('x', 6, 60))).toHaveProperty('priority')
-  })
-
   it('requires at least 15 minutes in 5-minute steps', () => {
-    expect(validateTask(task('x', 1, 10))).toHaveProperty('totalMinutes')
-    expect(validateTask(task('x', 1, 62))).toHaveProperty('totalMinutes')
-    expect(validateTask(task('x', 1, NaN))).toHaveProperty('totalMinutes')
+    expect(validateTask(task('x', 10))).toHaveProperty('totalMinutes')
+    expect(validateTask(task('x', 62))).toHaveProperty('totalMinutes')
+    expect(validateTask(task('x', NaN))).toHaveProperty('totalMinutes')
   })
 
   it('requires sessions of at least 15 minutes', () => {
-    expect(validateTask(task('x', 1, 60, 0))).toHaveProperty('sessions')
-    expect(validateTask(task('x', 1, 60, 5))).toEqual({
+    expect(validateTask(task('x', 60, 0))).toHaveProperty('sessions')
+    expect(validateTask(task('x', 60, 5))).toEqual({
       sessions: 'Sessions would be under 15 minutes each',
     })
-    expect(validateTask(task('x', 1, 60, 4))).toEqual({})
+    expect(validateTask(task('x', 60, 4))).toEqual({})
   })
 })
 

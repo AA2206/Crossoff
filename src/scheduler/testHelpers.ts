@@ -25,12 +25,12 @@ export const settings = (overrides: Partial<Settings> = {}): Settings => ({
   ...overrides,
 })
 
-export const task = (
-  id: string,
-  priority: number,
-  totalMinutes: number,
-  sessions = 1,
-): Task => ({ id, name: id, priority, totalMinutes, sessions })
+export const task = (id: string, totalMinutes: number, sessions = 1): Task => ({
+  id,
+  name: id,
+  totalMinutes,
+  sessions,
+})
 
 /** Placed sessions as 'Essay 1 9:00–10:00' strings. */
 export const describePlaced = (

@@ -4,7 +4,7 @@ Oct 7, 2026 · @Arpan Agarwal
 
 ## Overview
 
-Crossoff is a website that turns a list of prioritized tasks into time blocks on your Google Calendar, scheduled around everything already on it. You list what you want to get done today, how important each task is, how long you want to spend on it, and how many sessions to split it into. The site finds your free time, places the sessions, shows a preview, and writes the approved plan to your calendar.
+Crossoff is a website that turns a list of prioritized tasks into time blocks on your Google Calendar, scheduled around everything already on it. You list what you want to get done today, most important first, with how long you want to spend on each task and how many sessions to split it into. The site finds your free time, places the sessions, shows a preview, and writes the approved plan to your calendar.
 
 There is no sign-up and no account. You open the site, click Connect Google Calendar, approve Google's permission popup, and start planning.
 
@@ -81,9 +81,10 @@ The buffer and minimum break are advanced settings, hidden behind an Advanced to
 | Field | Type | Validation |
 | --- | --- | --- |
 | Name | text | Required; becomes the event title |
-| Priority | 1–5 | 1 = highest |
 | Total time | minutes | 15 or more, in 5-minute steps |
 | Sessions | integer | 1 or more; total time ÷ sessions must be at least 15 minutes |
+
+The order of the list is the priority: the most important task goes at the top, and arrows move tasks up and down.
 
 **Set-aside blocks**
 
@@ -113,16 +114,15 @@ The scheduler walks through the day from the start and, at each open point, plac
 **2. Split tasks into sessions**
 
 - Each task becomes `sessions` blocks of `total ÷ sessions` minutes, rounded to 5. Any rounding remainder goes to the first session so the total is preserved.
-- Each session is labelled with its task, priority and round (session 1, 2, 3…).
+- Each session is labelled with its task, its position in the list and its round (session 1, 2, 3…).
 
 **3. Rank the sessions**
 
-Sort by round, then priority, then the order tasks were entered:
+Sort by round, then the task's position in the list:
 
 ```ts
 sessions.sort((a, b) =>
   a.round - b.round ||
-  a.priority - b.priority ||
   a.taskIndex - b.taskIndex
 );
 ```
@@ -139,7 +139,7 @@ sessions.sort((a, b) =>
 
 - In each free stretch, compute the slack: stretch length minus session time minus set-aside time.
 - Divide the slack evenly among the gaps between sessions, rounded to 5 minutes. A gap at the edge of a stretch is added only when that edge is a calendar event, not the start or end of the working window.
-- No gap drops below the minimum break, and no session moves into a set-aside block. Each stretch spreads only its own slack, so break lengths can differ between stretches; moving sessions between stretches could undo the priority order.
+- No gap drops below the minimum break, and no session moves into a set-aside block. Each stretch spreads only its own slack, so break lengths can differ between stretches; moving sessions between stretches could undo the ranking.
 
 **6. Report**
 
@@ -227,11 +227,11 @@ The scheduler knows nothing about Google. It takes plain data in and returns pla
 
 | Type | Fields |
 | --- | --- |
-| `Task` | id, name, priority, totalMinutes, sessions |
+| `Task` | id, name, totalMinutes, sessions |
 | `SetAside` | id, label, windowStart, windowEnd, durationMinutes |
 | `Settings` | working window, mode, buffer, minBreak, calendarIds |
 | `Interval` | start, end, as minutes since midnight |
-| `Session` | taskId, round, priority, duration; start and end once placed |
+| `Session` | taskId, taskIndex, round, duration; start and end once placed |
 | `PlanResult` | placed sessions, unscheduled sessions, warnings |
 
 Inside the scheduler, times are plain minute numbers; they're converted to real timestamps only at the edges, which avoids date bugs.
@@ -356,7 +356,7 @@ Six one-week sprints, Monday to Sunday, take Crossoff from an empty repo to a wo
 - [ ] Define the types: `Task`, `SetAside`, `Settings`, `Interval`, `Session`, `PlanResult`
 - [ ] `buildFreeStretches`: working window, current-time cutoff, merged and buffered events, 15-minute minimum
 - [ ] `splitIntoSessions` with rounding to 5 minutes and the remainder on session 1
-- [ ] `rankSessions` by round, priority, entry order
+- [ ] `rankSessions` by round, then list order
 - [ ] `placeSessions`: walk the day, minimum break, step forward 5 minutes, `setAsideStillFits`
 - [ ] Unscheduled report and set-aside warnings
 - [ ] Unit tests for each rule, plus the worked example from this spec

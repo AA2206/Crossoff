@@ -10,8 +10,6 @@ export interface Interval {
 export interface Task {
   id: string
   name: string
-  /** 1 = highest, 5 = lowest. */
-  priority: number
   totalMinutes: number
   sessions: number
 }
@@ -36,13 +34,12 @@ export interface Settings {
 
 export interface Session {
   taskId: string
-  /** Position of the task in the entered list, the final tie-breaker. */
+  /** Position of the task in the list; higher in the list = more important. */
   taskIndex: number
   /** 1-based: session 1, 2, 3… of the task. */
   round: number
   /** Total sessions for the task, for titles like "Essay (1/3)". */
   rounds: number
-  priority: number
   duration: number
 }
 

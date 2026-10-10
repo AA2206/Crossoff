@@ -18,17 +18,15 @@ export function splitIntoSessions(tasks: Task[]): Session[] {
         taskIndex,
         round: i + 1,
         rounds: task.sessions,
-        priority: task.priority,
         duration: base + extra,
       }
     })
   })
 }
 
-/** Every task's first session before any task's second, then by priority. */
+/** Every task's first session before any task's second, then by list order. */
 export function rankSessions(sessions: Session[]): Session[] {
   return [...sessions].sort(
-    (a, b) =>
-      a.round - b.round || a.priority - b.priority || a.taskIndex - b.taskIndex,
+    (a, b) => a.round - b.round || a.taskIndex - b.taskIndex,
   )
 }

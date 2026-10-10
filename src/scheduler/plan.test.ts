@@ -20,9 +20,9 @@ describe('plan', () => {
   it('runs the worked example end to end from calendar events', () => {
     const result = plan({
       tasks: [
-        task('Essay', 1, 120, 2),
-        task('Problem set', 2, 90, 2),
-        task('Email', 3, 30),
+        task('Essay', 120, 2),
+        task('Problem set', 90, 2),
+        task('Email', 30),
       ],
       setAsides: [],
       settings: settings({ workingWindow: iv('9:00', '17:00') }),
@@ -42,10 +42,10 @@ describe('plan', () => {
   it('plans a realistic day around meetings, lunch and gym', () => {
     const result = plan({
       tasks: [
-        task('Essay', 1, 180, 3),
-        task('Problem set', 2, 90, 2),
-        task('Reading', 3, 60),
-        task('Email', 4, 30),
+        task('Essay', 180, 3),
+        task('Problem set', 90, 2),
+        task('Reading', 60),
+        task('Email', 30),
       ],
       setAsides: [
         setAside('Lunch', '12:00', '15:00', 60),
@@ -79,7 +79,7 @@ describe('plan', () => {
 
   it('reports unplaced sessions grouped by task', () => {
     const result = plan({
-      tasks: [task('Essay', 1, 120, 3), task('Email', 2, 30)],
+      tasks: [task('Essay', 120, 3), task('Email', 30)],
       setAsides: [],
       settings: settings({ workingWindow: iv('9:00', '11:10') }),
       busy: [],
@@ -97,7 +97,7 @@ describe('plan', () => {
 
   it('reports every task when nothing fits', () => {
     const result = plan({
-      tasks: [task('a', 1, 60), task('b', 2, 30, 2)],
+      tasks: [task('a', 60), task('b', 30, 2)],
       setAsides: [],
       settings: settings(),
       busy: [iv('8:00', '23:00')],
@@ -113,7 +113,7 @@ describe('plan', () => {
 
   it('only plans after the current time when re-planning', () => {
     const result = plan({
-      tasks: [task('a', 1, 60)],
+      tasks: [task('a', 60)],
       setAsides: [],
       settings: settings(),
       busy: [],
@@ -125,7 +125,7 @@ describe('plan', () => {
   describe('set-aside warnings', () => {
     it('warns when events leave too little time in a window', () => {
       const result = plan({
-        tasks: [task('a', 1, 60)],
+        tasks: [task('a', 60)],
         setAsides: [setAside('Gym', '18:00', '21:00', 90)],
         settings: settings({ bufferMinutes: 0 }),
         busy: [iv('19:00', '20:00')],

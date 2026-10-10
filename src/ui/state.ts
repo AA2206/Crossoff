@@ -80,7 +80,7 @@ export function reducer(state: State, action: Action): State {
       return edited(state, {
         tasks: [
           ...state.tasks,
-          { id: newId(), name: '', priority: 3, totalMinutes: 60, sessions: 1 },
+          { id: newId(), name: '', totalMinutes: 60, sessions: 1 },
         ],
       })
     case 'task/update':

@@ -10,12 +10,6 @@ export const hasErrors = (errors: object) => Object.keys(errors).length > 0
 export function validateTask(task: Task): Errors<Task> {
   const errors: Errors<Task> = {}
   if (task.name.trim() === '') errors.name = 'Give the task a name'
-  if (
-    !Number.isInteger(task.priority) ||
-    task.priority < 1 ||
-    task.priority > 5
-  )
-    errors.priority = 'Priority is 1 to 5'
   if (!inSteps(task.totalMinutes) || task.totalMinutes < MIN_STRETCH)
     errors.totalMinutes = 'At least 15 minutes, in 5-minute steps'
   if (!Number.isInteger(task.sessions) || task.sessions < 1)
