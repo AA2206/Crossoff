@@ -44,7 +44,7 @@ A visit goes from landing to a committed plan in five steps, with a preview gate
 
 &#91;embedded content: user flow · 6 steps, 1 decision, 2 loops\]
 
-If the preview doesn't look right, you edit tasks and regenerate. Later in the day, Re-plan from now clears the planner's future events and sends you back through the same preview.
+If the preview doesn't look right, you edit tasks and regenerate. Later in the day, generating again (the button reads Re-plan from now when today already has a plan) goes through the same preview; committing replaces the planner's sessions that haven't started yet. Re-plan schedules the whole task list again, so update tasks to what's left first.
 
 ## Main screen
 
@@ -54,7 +54,7 @@ Everything happens on one screen: you set up the day on the left and check the p
 
 The left column holds the task list, set-aside blocks, and day settings, with the gap settings behind Advanced. Generate plan fills the preview on the right: existing events in gray, sessions colored by task, and set-aside windows outlined with dashes so you can see the protected time. The report line sits above Commit to calendar, which is the only action that writes anything.
 
-**First visit.** When someone first lands on the site, nothing is connected and the task list is empty. The preview panel holds the Connect Google Calendar button, and Generate plan stays disabled until there's at least one task and a connected calendar. Tasks can be typed in before connecting.
+**First visit.** When someone first lands on the site, nothing is connected and the task list is empty. The preview panel holds the Connect Google Calendar button, and Generate plan stays disabled until there's at least one task. Tasks can be typed in before connecting; if there's no connection when Generate plan is clicked, it opens Google's popup first.
 
 &#91;embedded content: first-visit mockup · not connected, no tasks\]
 
@@ -192,7 +192,7 @@ The browser talks to Google directly using Google Identity Services' token model
 
 **Tagging planner events.** Every event the site creates carries `extendedProperties.private.planner = "true"` and a fixed `colorId`, with a title like "Essay (1/3)". Clearing and re-planning only ever touch events with that tag, so real meetings and classes can't be changed or deleted by the app.
 
-**Freebusy returns planner events too.** When re-planning, delete the old future planner events first, then call freeBusy, so the old plan doesn't block the new one.
+**Freebusy returns planner events too.** Generating lists the day's planner events and takes the ones that haven't started out of the main calendar's busy times, so the old plan doesn't block the new one. Sessions already started or finished stay busy. Nothing is deleted until commit, which creates the new sessions first and then deletes the ones they replace, so backing out of a preview leaves the old plan untouched. (If a real event sits at exactly the same time as an old session, its time is freed too; this rare case is accepted.)
 
 ## Architecture and tech stack
 
@@ -252,7 +252,7 @@ Inside the scheduler, times are plain minute numbers; they're converted to real 
 
 **UI and state**
 
-Components: ConnectButton, TaskList and TaskRow, SetAsideList, DaySettings with an Advanced panel, Timeline preview (existing events in gray, sessions in color), UnscheduledReport, and Commit and Re-plan buttons. A single top-level `useReducer` holds state; no state library is needed.
+Components: ConnectButton, TaskList and TaskRow, SetAsideList, DaySettings with an Advanced panel, Timeline preview (existing events in gray, sessions in color, planner sessions already in the calendar outlined), UnscheduledReport, Commit and Clear. Re-plan is the Generate button, relabelled when today already has a plan. A single top-level `useReducer` holds state; no state library is needed.
 
 **Testing**
 
@@ -277,7 +277,7 @@ Testing focuses on the scheduler: one test per rule (buffers, rounding remainder
 | Nothing fits | Preview is empty; report lists every task with suggestions |
 | Token expired (401) | Reconnect button; tasks and preview kept |
 | Rate limit or 5xx | Retry with backoff, up to 3 times; then show an error |
-| Commit fails partway | Show which sessions were created; offer "Retry remaining" or "Undo" (delete the ones created) |
+| Commit fails partway | Show which sessions were created; offer "Retry remaining" or "Undo" (delete the ones created). The old plan is only removed once every new session exists; if that removal fails, offer "Try again" |
 | User edits a planner event in Google | Treated as busy on the next re-plan only if it's untagged; tagged events are still owned by the planner |
 | Commit clicked twice | Button disabled during the commit |
 | Day crosses a daylight-saving change | Times computed in the user's zone; covered by a scheduler test |
@@ -390,7 +390,7 @@ Six one-week sprints, Monday to Sunday, take Crossoff from an empty repo to a wo
 
 - [ ] `createSessionEvents` with the planner tag, fixed color and "Essay (1/3)" titles
 - [ ] `listPlannerEvents` and `deletePlannerEvents`
-- [ ] Re-plan from now: delete future planner events, refetch busy times, plan from the current time
+- [ ] Re-plan from now: refetch busy times and planner events, free the time of sessions that haven't started, plan from the current time; replace them on commit
 - [ ] Commit failures: show what was created, offer Retry remaining or Undo
 - [ ] Disable Commit while a commit is running
 - [ ] Preview marks itself out of date when tasks change
