@@ -65,7 +65,7 @@ export function Timeline({
             className="absolute inset-x-0 rounded-md border-2 border-dashed border-gray-300 bg-gray-50/60"
             style={box(s)}
           >
-            <span className="absolute top-1 right-2 text-[11px] text-gray-500">
+            <span className="absolute top-1 right-1.5 max-w-12 text-right text-[11px] leading-tight text-gray-500 sm:right-2 sm:max-w-none">
               {s.label || 'Set aside'} · {s.durationMinutes} min
             </span>
           </div>
@@ -74,7 +74,7 @@ export function Timeline({
       {busy.filter(visible).map((b) => (
         <div
           key={`${b.start}-${b.end}`}
-          className="absolute right-24 left-1 overflow-hidden rounded bg-gray-300 px-2 text-xs text-gray-700"
+          className="absolute right-14 left-1 sm:right-24 overflow-hidden rounded bg-gray-300 px-2 text-xs text-gray-700"
           style={box(b)}
         >
           Busy · {formatTime(b.start)}–{formatTime(b.end)}
@@ -84,7 +84,7 @@ export function Timeline({
       {existing.filter(visible).map((e) => (
         <div
           key={e.id}
-          className="absolute right-24 left-1 overflow-hidden rounded border-2 border-sky-700 bg-sky-50 px-2 text-xs leading-4 text-sky-900"
+          className="absolute right-14 left-1 sm:right-24 overflow-hidden rounded border-2 border-sky-700 bg-sky-50 px-2 text-xs leading-4 text-sky-900"
           style={box(e)}
           title={`${e.title}, ${formatTime(e.start)}–${formatTime(e.end)} (in your calendar)`}
         >
@@ -101,7 +101,7 @@ export function Timeline({
         return (
           <div
             key={`${s.taskId}-${s.round}`}
-            className={`absolute right-24 left-1 overflow-hidden rounded px-2 text-xs leading-4 text-white shadow-sm ${taskColor(index)} ${stale ? 'opacity-40' : ''}`}
+            className={`absolute right-14 left-1 sm:right-24 overflow-hidden rounded px-2 text-xs leading-4 text-white shadow-sm ${taskColor(index)} ${stale ? 'opacity-40' : ''}`}
             style={box(s)}
             title={`${title}, ${formatTime(s.start)}–${formatTime(s.end)}`}
           >

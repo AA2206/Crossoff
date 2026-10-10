@@ -91,7 +91,10 @@ export function DaySettings({
           </legend>
           <div className="mt-1 space-y-1">
             {calendars.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-sm">
+              <label
+                key={c.id}
+                className="flex min-h-10 items-center gap-2 text-sm sm:min-h-8"
+              >
                 <input
                   type="checkbox"
                   className="size-4 accent-gray-900"
@@ -112,7 +115,7 @@ export function DaySettings({
       )}
 
       <details className="mt-3 text-sm">
-        <summary className="cursor-pointer text-gray-600 select-none">
+        <summary className="cursor-pointer py-2 text-gray-600 select-none">
           Advanced
         </summary>
         <div className="mt-3 grid grid-cols-2 gap-3">

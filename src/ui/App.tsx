@@ -472,7 +472,7 @@ function Preview({
         {connection === 'connected' && (
           <button
             type="button"
-            className="text-xs text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline"
+            className="py-2 text-xs text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline"
             onClick={onDisconnect}
           >
             Disconnect Google Calendar

@@ -2,10 +2,10 @@ import type { ReactNode } from 'react'
 import { fromInputTime, toInputTime } from '../time'
 
 export const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-gray-900 focus:ring-1 focus:ring-gray-900 focus:outline-none aria-[invalid=true]:border-red-500'
+  'w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-base sm:py-1.5 sm:text-sm focus:border-gray-900 focus:ring-1 focus:ring-gray-900 focus:outline-none aria-[invalid=true]:border-red-500'
 
 export const smallButtonClass =
-  'rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:hover:bg-transparent'
+  'inline-flex min-h-10 min-w-10 items-center justify-center rounded-md px-2 py-1 text-sm text-gray-500 sm:min-h-0 sm:min-w-0 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:hover:bg-transparent'
 
 export function Field({
   label,

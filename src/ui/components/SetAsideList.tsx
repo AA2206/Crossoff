@@ -75,7 +75,7 @@ function SetAsideRow({
           ✕
         </button>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-2">
+      <div className="mt-2 grid grid-cols-2 gap-2">
         <Field label="From">
           <TimeInput
             value={setAside.windowStart}
